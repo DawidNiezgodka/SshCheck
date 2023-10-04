@@ -1,27 +1,62 @@
-const core = require('@actions/core')
-const { wait } = require('./wait')
+const fs = require('fs')
+const { exec } = require('child_process')
 
-/**
- * The main function for the action.
- * @returns {Promise<void>} Resolves when the action is complete.
- */
-async function run() {
+const maxRetryTime = 600000
+const intervalTime = 15000
+
+const readHostsFromFile = filePath => {
+  const content = fs.readFileSync(filePath, 'utf-8')
+  const lines = content.split('\n')
+  const ips = []
+
+  lines.forEach(line => {
+    const match = line.match(/ansible_host=([\d\.]+)/)
+    if (match && match[1]) {
+      ips.push(match[1])
+    }
+  })
+
+  return ips
+}
+
+const checkSSHAvailability = (ip, callback) => {
+  exec(`nc -z -v -w5 ${ip} 22`, error => {
+    callback(!error)
+  })
+}
+
+const waitForSSHAvailability = async ip => {
+  return new Promise((resolve, reject) => {
+    let elapsedTime = 0
+
+    const interval = setInterval(() => {
+      checkSSHAvailability(ip, isAvailable => {
+        if (isAvailable) {
+          clearInterval(interval)
+          resolve(true)
+        }
+      })
+
+      elapsedTime += intervalTime
+
+      if (elapsedTime >= maxRetryTime) {
+        clearInterval(interval)
+        reject(new Error(`the host ${ip} is still unavailable.`))
+      }
+    }, intervalTime)
+  })
+}
+
+const run = async () => {
   try {
-    const ms = core.getInput('milliseconds', { required: true })
-
-    // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-    core.debug(`Waiting ${ms} milliseconds ...`)
-
-    // Log the current timestamp, wait, then log the new timestamp
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
-
-    // Set outputs for other workflow steps to use
-    core.setOutput('time', new Date().toTimeString())
+    const ips = readHostsFromFile(process.env.INPUT_HOSTS_FILE)
+    const promises = ips.map(ip => waitForSSHAvailability(ip))
+    await Promise.all(promises)
+    console.log('All hosts are reachable.')
+    process.exit(0)
   } catch (error) {
-    // Fail the workflow run if an error occurs
-    core.setFailed(error.message)
+    console.error(error.message)
+    process.exit(1)
   }
 }
 
