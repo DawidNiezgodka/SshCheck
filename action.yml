@@ -1,7 +1,7 @@
 name: 'Check Hosts via SSH'
 description: 'Checks if hosts are reachable via SSH'
 inputs:
-  hosts_file:
+  hosts_file_path:
     description: 'Path to the hosts.cfg file'
     required: true
 

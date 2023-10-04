@@ -1,5 +1,6 @@
 const fs = require('fs')
 const { exec } = require('child_process')
+const core = require('@actions/core')
 
 const maxRetryTime = 600000
 const intervalTime = 15000
@@ -10,7 +11,7 @@ const readHostsFromFile = filePath => {
   const ips = []
 
   lines.forEach(line => {
-    const match = line.match(/ansible_host=([\d\.]+)/)
+    const match = line.match(/ansible_host=([\d.]+)/)
     if (match && match[1]) {
       ips.push(match[1])
     }
@@ -49,7 +50,8 @@ const waitForSSHAvailability = async ip => {
 
 const run = async () => {
   try {
-    const ips = readHostsFromFile(process.env.INPUT_HOSTS_FILE)
+    const hostsFilePath = core.getInput('hosts_file_path')
+    const ips = readHostsFromFile(hostsFilePath)
     const promises = ips.map(ip => waitForSSHAvailability(ip))
     await Promise.all(promises)
     console.log('All hosts are reachable.')
