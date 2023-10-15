@@ -4,6 +4,14 @@ inputs:
   hosts_file_path:
     description: 'Path to the hosts.cfg file'
     required: true
+  max_retry_time:
+    description: 'Maximum time to retry connecting to a host in ms'
+    required: false
+    default: '100000'
+  check_interval:
+    description: 'Time between retries in ms'
+    required: false
+    default: '15000'
 
 runs:
   using: node20

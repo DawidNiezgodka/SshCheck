@@ -2729,9 +2729,6 @@ const fs = __nccwpck_require__(147)
 const { exec } = __nccwpck_require__(81)
 const core = __nccwpck_require__(186)
 
-const maxRetryTime = 600000
-const intervalTime = 15000
-
 const readHostsFromFile = filePath => {
   const content = fs.readFileSync(filePath, 'utf-8')
   const lines = content.split('\n')
@@ -2753,7 +2750,7 @@ const checkSSHAvailability = (ip, callback) => {
   })
 }
 
-const waitForSSHAvailability = async ip => {
+const waitForSSHAvailability = async (ip, maxRetryTime, intervalTime) => {
   return new Promise((resolve, reject) => {
     let elapsedTime = 0
 
@@ -2778,8 +2775,12 @@ const waitForSSHAvailability = async ip => {
 const run = async () => {
   try {
     const hostsFilePath = core.getInput('hosts_file_path')
+    const checkInterval = core.getInput('check_interval')
+    const maxRetryTime = core.getInput('max_retry_time')
     const ips = readHostsFromFile(hostsFilePath)
-    const promises = ips.map(ip => waitForSSHAvailability(ip))
+    const promises = ips.map(ip =>
+      waitForSSHAvailability(ip, maxRetryTime, checkInterval)
+    )
     await Promise.all(promises)
     console.log('All hosts are reachable.')
     process.exit(0)
